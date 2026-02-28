@@ -1,5 +1,6 @@
 {
   "realm": "univerliga",
+  "sslRequired": "NONE",
   "enabled": true,
   "roles": {
     "realm": [
