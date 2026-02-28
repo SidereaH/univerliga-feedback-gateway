@@ -26,6 +26,10 @@ services:
       KC_DB_PASSWORD: keycloak
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_PROXY_HEADERS: xforwarded
+      KC_HOSTNAME: otziv-auth.mysubscription.digital
+      KC_HOSTNAME_STRICT: "true"
+      KC_HOSTNAME_STRICT_HTTPS: "true"
     volumes:
       - ./realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
     ports:
@@ -42,6 +46,7 @@ services:
       GATEWAY_JWT_ISSUER_URI: http://keycloak:8080/realms/univerliga
       GATEWAY_AUTH_TOKEN_URL: http://keycloak:8080/realms/univerliga/protocol/openid-connect/token
       GATEWAY_MODE: mock
+      ANALYTICS_BASE_URL: http://reporting:8080
     ports:
       - "8080:8080"
     depends_on:

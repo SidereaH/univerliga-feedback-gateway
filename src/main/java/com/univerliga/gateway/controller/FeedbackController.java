@@ -2,6 +2,7 @@ package com.univerliga.gateway.controller;
 
 import com.univerliga.gateway.dto.ApiEnvelope;
 import com.univerliga.gateway.dto.FeedbackDtos;
+import com.univerliga.gateway.model.FeedbackRecord;
 import com.univerliga.gateway.service.ApiResponseFactory;
 import com.univerliga.gateway.service.FeedbackService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping(value = "/api/v1/feedback", produces = "application/json;charset=UTF-8")
-@Tag(name = "Feedback", description = "Feedback and survey endpoints")
+@Tag(name = "Feedback", description = "Context-based feedback endpoints")
 public class FeedbackController {
     private final FeedbackService feedbackService;
     private final ApiResponseFactory responseFactory;
@@ -24,45 +25,56 @@ public class FeedbackController {
     }
 
     @GetMapping("/categories")
-    @Operation(summary = "Feedback categories", description = "Returns available feedback categories and subcategories")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','EMPLOYEE')")
+    @Operation(summary = "Feedback categories", description = "Returns categories with polarity and active flags for tags")
+    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER','EMPLOYEE')")
     public ApiEnvelope<FeedbackDtos.CategoriesResponse> categories() {
         return responseFactory.ok(feedbackService.categories());
     }
 
     @PostMapping(consumes = "application/json")
-    @Operation(summary = "Create feedback", description = "Creates feedback for selected task and target person")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','EMPLOYEE')")
-    public ApiEnvelope<FeedbackDtos.FeedbackItem> create(@RequestBody @Valid FeedbackDtos.CreateFeedbackRequest request) {
+    @Operation(summary = "Create review", description = "Creates review with contextType/contextRef; supports legacy taskId mapping")
+    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER','EMPLOYEE')")
+    public ApiEnvelope<FeedbackDtos.ReviewResponse> create(@RequestBody @Valid FeedbackDtos.CreateReviewRequest request) {
         return responseFactory.ok(feedbackService.create(request));
     }
 
+    @PutMapping(value = "/{reviewId}", consumes = "application/json")
+    @Operation(summary = "Update review", description = "Updates mutable review fields: rating/sentiment/tagIds/comment")
+    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER','EMPLOYEE')")
+    public ApiEnvelope<FeedbackDtos.ReviewResponse> update(@PathVariable String reviewId,
+                                                           @RequestBody @Valid FeedbackDtos.UpdateReviewRequest request) {
+        return responseFactory.ok(feedbackService.update(reviewId, request));
+    }
+
     @GetMapping("/my")
-    @Operation(summary = "My sent feedback", description = "Returns feedback authored by current user")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','EMPLOYEE')")
-    public ApiEnvelope<FeedbackDtos.FeedbackPage> my(@Parameter(description = "Filter by task id") @RequestParam(required = false) String taskId,
-                                                     @Parameter(description = "Page number, starting from 1") @RequestParam(defaultValue = "1") int page,
-                                                     @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size) {
-        return responseFactory.ok(feedbackService.my(taskId, page, size));
+    @Operation(summary = "My sent feedback", description = "Returns reviews authored by current user")
+    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER','EMPLOYEE')")
+    public ApiEnvelope<FeedbackDtos.ReviewPage> my(@Parameter(description = "Context type filter") @RequestParam(required = false) FeedbackRecord.ContextType contextType,
+                                                   @Parameter(description = "Context reference filter") @RequestParam(required = false) String contextRef,
+                                                   @Parameter(description = "Page number, starting from 1") @RequestParam(defaultValue = "1") int page,
+                                                   @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size) {
+        return responseFactory.ok(feedbackService.my(contextType, contextRef, page, size));
     }
 
     @GetMapping("/inbox")
-    @Operation(summary = "My incoming feedback", description = "Returns feedback where current user is target")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','EMPLOYEE')")
-    public ApiEnvelope<FeedbackDtos.FeedbackPage> inbox(@Parameter(description = "Filter by task id") @RequestParam(required = false) String taskId,
-                                                        @Parameter(description = "Page number, starting from 1") @RequestParam(defaultValue = "1") int page,
-                                                        @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size) {
-        return responseFactory.ok(feedbackService.inbox(taskId, page, size));
+    @Operation(summary = "Inbox reviews", description = "Returns target/team inbox reviews with hidden author")
+    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER','EMPLOYEE')")
+    public ApiEnvelope<FeedbackDtos.ReviewPage> inbox(@Parameter(description = "Context type filter") @RequestParam(required = false) FeedbackRecord.ContextType contextType,
+                                                      @Parameter(description = "Context reference filter") @RequestParam(required = false) String contextRef,
+                                                      @Parameter(description = "Page number, starting from 1") @RequestParam(defaultValue = "1") int page,
+                                                      @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size) {
+        return responseFactory.ok(feedbackService.inbox(contextType, contextRef, page, size));
     }
 
     @GetMapping("/raw")
-    @Operation(summary = "Raw feedback with author", description = "Administrative endpoint returning raw feedback with author person id")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ApiEnvelope<FeedbackDtos.FeedbackPage> raw(@Parameter(description = "Filter by task id") @RequestParam(required = false) String taskId,
-                                                      @Parameter(description = "Filter by target person id") @RequestParam(required = false) String targetPersonId,
-                                                      @Parameter(description = "Filter by author person id") @RequestParam(required = false) String authorPersonId,
-                                                      @Parameter(description = "Page number, starting from 1") @RequestParam(defaultValue = "1") int page,
-                                                      @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size) {
-        return responseFactory.ok(feedbackService.raw(taskId, targetPersonId, authorPersonId, page, size));
+    @Operation(summary = "Raw reviews with author", description = "Administrative endpoint for ADMIN/HR with visible authorPersonId")
+    @PreAuthorize("hasAnyRole('ADMIN','HR')")
+    public ApiEnvelope<FeedbackDtos.ReviewPage> raw(@Parameter(description = "Context type filter") @RequestParam(required = false) FeedbackRecord.ContextType contextType,
+                                                    @Parameter(description = "Context reference filter") @RequestParam(required = false) String contextRef,
+                                                    @Parameter(description = "Target person filter") @RequestParam(required = false) String targetPersonId,
+                                                    @Parameter(description = "Author person filter") @RequestParam(required = false) String authorPersonId,
+                                                    @Parameter(description = "Page number, starting from 1") @RequestParam(defaultValue = "1") int page,
+                                                    @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size) {
+        return responseFactory.ok(feedbackService.raw(contextType, contextRef, targetPersonId, authorPersonId, page, size));
     }
 }

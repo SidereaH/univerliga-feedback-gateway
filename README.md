@@ -43,13 +43,32 @@ curl -s 'http://localhost:8080/api/v1/crm/tasks?page=1&size=5' \
 
 curl -s 'http://localhost:8080/api/v1/feedback/categories' \
   -H "Authorization: Bearer $TOKEN"
+
+curl -s -X POST 'http://localhost:8080/api/v1/feedback' \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "targetPersonId":"p_4",
+    "contextType":"TASK",
+    "contextRef":"task_1",
+    "rating":5,
+    "tagIds":["sub_comm_good","sub_help_explain"],
+    "comment":"Strong contribution"
+  }'
+
+curl -s 'http://localhost:8080/api/v1/reports/summary?periodFrom=2026-01-01&periodTo=2026-03-31' \
+  -H "Authorization: Bearer $TOKEN"
+
+curl -s 'http://localhost:8080/api/v1/reports/insights/top-tags?periodFrom=2026-01-01&periodTo=2026-03-31&limit=5' \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ## Роли и доступ
 
 - `ROLE_ADMIN`: полный доступ
+- `ROLE_HR`: отчёты + доступ к `/feedback/raw`
 - `ROLE_MANAGER`: отчёты + чтение/редактирование задач
-- `ROLE_EMPLOYEE`: профиль, свои задачи и feedback
+- `ROLE_EMPLOYEE`: профиль, свои задачи и feedback (без `/reports/**`, без `/feedback/raw`)
 
 ## Архитектура
 
@@ -57,6 +76,7 @@ curl -s 'http://localhost:8080/api/v1/feedback/categories' \
 - `service/*` — бизнес-правила и role checks
 - `client/*` — интерфейсы внешних сервисов
 - `client/mock/*` — in-memory заглушки (10 people, 10 tasks, 30 feedback)
+- `client/mock/*` — in-memory заглушки с context-based reviews, polarity tags и аналитикой
 - `client/real/*` — каркас для реальных HTTP-вызовов
 - `security/*` — JWT converter (realm roles -> `ROLE_*`)
 - `error/*` — унифицированный формат ошибок
@@ -69,4 +89,5 @@ curl -s 'http://localhost:8080/api/v1/feedback/categories' \
 - `gateway.clients.crm.base-url`
 - `gateway.clients.feedback.base-url`
 - `gateway.clients.reporting.base-url`
+- `gateway.clients.analytics.base-url`
 - `spring.security.oauth2.resourceserver.jwt.issuer-uri`

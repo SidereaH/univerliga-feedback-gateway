@@ -34,6 +34,8 @@ gateway:
       base-url: ${FEEDBACK_BASE_URL:http://feedback:8080}
     reporting:
       base-url: ${REPORTING_BASE_URL:http://reporting:8080}
+    analytics:
+      base-url: ${ANALYTICS_BASE_URL:http://reporting:8080}
 
 springdoc:
   swagger-ui:

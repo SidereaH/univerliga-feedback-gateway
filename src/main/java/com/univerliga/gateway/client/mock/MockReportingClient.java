@@ -5,25 +5,29 @@ import com.univerliga.gateway.dto.ReportDtos;
 import com.univerliga.gateway.model.CategoryRecord;
 import com.univerliga.gateway.model.FeedbackRecord;
 import com.univerliga.gateway.model.PersonRecord;
-import com.univerliga.gateway.model.TaskRecord;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
-import java.time.YearMonth;
+import java.time.ZoneOffset;
+import java.time.temporal.IsoFields;
+import java.time.temporal.WeekFields;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * For top tags share we use count/total count within the same polarity bucket (positive or negative).
+ */
 @Component
 @ConditionalOnProperty(prefix = "gateway", name = "mode", havingValue = "mock", matchIfMissing = true)
 public class MockReportingClient implements ReportingClient {
-
     private final MockDataStore dataStore;
 
     public MockReportingClient(MockDataStore dataStore) {
@@ -31,32 +35,36 @@ public class MockReportingClient implements ReportingClient {
     }
 
     @Override
-    public ReportDtos.SummaryResponse summary(LocalDate from, LocalDate to, String departmentId, String teamId) {
-        List<FeedbackRecord> feedback = filteredFeedback(from, to, departmentId, teamId, null, null);
-        long responses = feedback.size();
-        double avgRating = average(feedback.stream().mapToInt(FeedbackRecord::rating).boxed().toList());
-        long positive = feedback.stream().filter(this::isPositive).count();
-        long negative = feedback.stream().filter(this::isNegative).count();
-        long pnTotal = positive + negative;
-        double positiveShare = pnTotal == 0 ? 0.0 : round(positive / (double) pnTotal);
+    public ReportDtos.SummaryResponse summary(LocalDate from, LocalDate to, String departmentId, String teamId, String personId) {
+        List<FeedbackRecord> reviews = filteredFeedback(from, to, departmentId, teamId, personId, null);
+        ReportDtos.SummaryKpis kpis = buildKpis(reviews, departmentId, teamId, personId);
         return new ReportDtos.SummaryResponse(
             new ReportDtos.ReportPeriod(from.toString(), to.toString()),
-            new ReportDtos.Kpis(responses, avgRating, positiveShare)
+            new ReportDtos.ScopeWithPersonDto(departmentId, teamId, personId),
+            kpis
         );
     }
 
     @Override
-    public ReportDtos.RatingsByCategoryResponse ratingsByCategory(LocalDate from, LocalDate to, String teamId) {
-        List<FeedbackRecord> feedback = filteredFeedback(from, to, null, teamId, null, null);
+    public ReportDtos.RatingsByCategoryResponse ratingsByCategory(LocalDate from,
+                                                                  LocalDate to,
+                                                                  String departmentId,
+                                                                  String teamId,
+                                                                  String personId) {
         Map<String, String> categoryNames = categoryNames();
+        Map<String, String> tagToCategory = subcategoryToCategory();
+        List<FeedbackRecord> reviews = filteredFeedback(from, to, departmentId, teamId, personId, null);
 
-        List<ReportDtos.CategorySeriesItem> series = feedback.stream()
-            .collect(Collectors.groupingBy(FeedbackRecord::categoryId))
+        List<ReportDtos.CategorySeriesItem> series = reviews.stream()
+            .filter(r -> r.rating() != null)
+            .map(r -> Map.entry(primaryCategoryId(r, tagToCategory), r.rating()))
+            .filter(e -> e.getKey() != null)
+            .collect(Collectors.groupingBy(Map.Entry::getKey))
             .entrySet().stream()
             .map(e -> new ReportDtos.CategorySeriesItem(
                 e.getKey(),
                 categoryNames.getOrDefault(e.getKey(), e.getKey()),
-                round(average(e.getValue().stream().map(FeedbackRecord::rating).toList())),
+                round(e.getValue().stream().map(Map.Entry::getValue).mapToInt(Integer::intValue).average().orElse(0.0)),
                 e.getValue().size()
             ))
             .sorted(Comparator.comparingLong(ReportDtos.CategorySeriesItem::count).reversed())
@@ -66,29 +74,24 @@ public class MockReportingClient implements ReportingClient {
     }
 
     @Override
-    public ReportDtos.TrendResponse trend(String metric, String period, LocalDate from, LocalDate to, String teamId) {
-        List<FeedbackRecord> feedback = filteredFeedback(from, to, null, teamId, null, null);
-        Map<String, TaskRecord> tasks = tasksById();
+    public ReportDtos.TrendResponse trend(String metric,
+                                          String granularity,
+                                          LocalDate from,
+                                          LocalDate to,
+                                          String departmentId,
+                                          String teamId,
+                                          String personId) {
+        List<FeedbackRecord> reviews = filteredFeedback(from, to, departmentId, teamId, personId, null);
+        Map<String, List<FeedbackRecord>> buckets = reviews.stream()
+            .collect(Collectors.groupingBy(r -> bucketKey(toDate(r), granularity)));
 
-        Map<YearMonth, List<FeedbackRecord>> byMonth = feedback.stream()
-            .collect(Collectors.groupingBy(f -> YearMonth.from(tasks.get(f.taskId()).periodFrom())));
-
-        List<ReportDtos.TrendPoint> points = new ArrayList<>();
-        YearMonth cursor = YearMonth.from(from);
-        YearMonth end = YearMonth.from(to);
-        while (!cursor.isAfter(end)) {
-            List<FeedbackRecord> monthFeedback = byMonth.getOrDefault(cursor, List.of());
-            double value;
-            if ("avgRating".equals(metric)) {
-                value = average(monthFeedback.stream().map(FeedbackRecord::rating).toList());
-            } else {
-                value = monthFeedback.size();
-            }
-            points.add(new ReportDtos.TrendPoint(cursor.toString(), round(value)));
-            cursor = cursor.plusMonths(1);
+        List<String> xAxis = enumerateBuckets(from, to, granularity);
+        List<ReportDtos.TrendPoint> points = new ArrayList<>(xAxis.size());
+        for (String x : xAxis) {
+            List<FeedbackRecord> bucketReviews = buckets.getOrDefault(x, List.of());
+            points.add(new ReportDtos.TrendPoint(x, round(metricValue(metric, bucketReviews))));
         }
-
-        return new ReportDtos.TrendResponse(metric, points);
+        return new ReportDtos.TrendResponse(metric, granularity, points);
     }
 
     @Override
@@ -98,12 +101,12 @@ public class MockReportingClient implements ReportingClient {
                                                                     String teamId,
                                                                     int limit,
                                                                     String sort) {
-        List<FeedbackRecord> feedback = filteredFeedback(from, to, departmentId, teamId, null, null);
+        List<FeedbackRecord> reviews = filteredFeedback(from, to, departmentId, teamId, null, null);
         Map<String, PersonRecord> people = peopleById();
-        Map<String, List<FeedbackRecord>> grouped = feedback.stream()
-            .collect(Collectors.groupingBy(FeedbackRecord::targetPersonId));
 
-        List<ReportDtos.PositivityByPersonItem> items = grouped.entrySet().stream()
+        List<ReportDtos.PositivityByPersonItem> items = reviews.stream()
+            .collect(Collectors.groupingBy(FeedbackRecord::targetPersonId))
+            .entrySet().stream()
             .map(e -> toPositivityItem(e.getKey(), e.getValue(), people))
             .filter(i -> i.total() > 0)
             .sorted(positivityComparator(sort))
@@ -112,7 +115,7 @@ public class MockReportingClient implements ReportingClient {
 
         return new ReportDtos.PositivityByPersonResponse(
             new ReportDtos.ReportPeriod(from.toString(), to.toString()),
-            new ReportDtos.ScopeDto(departmentId, teamId),
+            new ReportDtos.ScopeWithPersonDto(departmentId, teamId, null),
             items
         );
     }
@@ -122,25 +125,27 @@ public class MockReportingClient implements ReportingClient {
                                                                         LocalDate to,
                                                                         String departmentId,
                                                                         String teamId,
+                                                                        String personId,
                                                                         String categoryId,
                                                                         int limit,
                                                                         String sort) {
-        List<FeedbackRecord> feedback = filteredFeedback(from, to, departmentId, teamId, null, categoryId);
-        Map<String, String> subcategoryNames = subcategoryNames();
+        List<FeedbackRecord> reviews = filteredFeedback(from, to, departmentId, teamId, personId, categoryId);
+        Map<String, CategoryRecord.SubcategoryRecord> subMap = subcategoryById();
 
-        List<ReportDtos.SubcategoryFrequencyItem> items = feedback.stream()
-            .collect(Collectors.groupingBy(FeedbackRecord::subcategoryId))
+        List<ReportDtos.SubcategoryFrequencyItem> items = reviews.stream()
+            .flatMap(r -> r.tagIds().stream().map(tagId -> Map.entry(tagId, resolveSentiment(r, subMap))))
+            .collect(Collectors.groupingBy(Map.Entry::getKey))
             .entrySet().stream()
             .map(e -> {
-                long positive = e.getValue().stream().filter(this::isPositive).count();
-                long negative = e.getValue().stream().filter(this::isNegative).count();
-                long total = positive + negative;
+                CategoryRecord.SubcategoryRecord sub = subMap.get(e.getKey());
+                long positive = e.getValue().stream().filter(v -> v.getValue() == FeedbackRecord.Sentiment.POSITIVE).count();
+                long negative = e.getValue().stream().filter(v -> v.getValue() == FeedbackRecord.Sentiment.NEGATIVE).count();
                 return new ReportDtos.SubcategoryFrequencyItem(
                     e.getKey(),
-                    subcategoryNames.getOrDefault(e.getKey(), e.getKey()),
+                    sub != null ? sub.name() : e.getKey(),
                     positive,
                     negative,
-                    total
+                    positive + negative
                 );
             })
             .filter(i -> i.total() > 0)
@@ -150,8 +155,28 @@ public class MockReportingClient implements ReportingClient {
 
         return new ReportDtos.SubcategoryFrequencyResponse(
             new ReportDtos.ReportPeriod(from.toString(), to.toString()),
-            new ReportDtos.ScopeWithCategoryDto(departmentId, teamId, categoryId),
+            new ReportDtos.ScopeWithCategoryDto(departmentId, teamId, personId, categoryId),
             items
+        );
+    }
+
+    @Override
+    public ReportDtos.TopTagsResponse topTags(LocalDate from,
+                                              LocalDate to,
+                                              String departmentId,
+                                              String teamId,
+                                              String personId,
+                                              int limit) {
+        List<FeedbackRecord> reviews = filteredFeedback(from, to, departmentId, teamId, personId, null);
+        Map<String, CategoryRecord.SubcategoryRecord> subMap = subcategoryById();
+        List<String> tags = reviews.stream().flatMap(r -> r.tagIds().stream()).toList();
+
+        List<ReportDtos.TopTagItem> topPositive = topTagsByPolarity(tags, subMap, CategoryRecord.SubcategoryRecord.Polarity.POSITIVE, limit);
+        List<ReportDtos.TopTagItem> topNegative = topTagsByPolarity(tags, subMap, CategoryRecord.SubcategoryRecord.Polarity.NEGATIVE, limit);
+        return new ReportDtos.TopTagsResponse(
+            new ReportDtos.ReportPeriod(from.toString(), to.toString()),
+            topPositive,
+            topNegative
         );
     }
 
@@ -161,88 +186,70 @@ public class MockReportingClient implements ReportingClient {
                                                   String departmentId,
                                                   String teamId,
                                                   String personId) {
-        List<FeedbackRecord> feedback = filteredFeedback(from, to, departmentId, teamId, personId, null);
-        long responses = feedback.size();
-        long uniqueAuthors = feedback.stream().map(FeedbackRecord::authorPersonId).filter(Objects::nonNull).distinct().count();
-        long uniqueTargets = feedback.stream().map(FeedbackRecord::targetPersonId).filter(Objects::nonNull).distinct().count();
-        double avgRating = average(feedback.stream().map(FeedbackRecord::rating).toList());
-        long positive = feedback.stream().filter(this::isPositive).count();
-        long negative = feedback.stream().filter(this::isNegative).count();
-        long pnTotal = positive + negative;
-        double positiveShare = pnTotal == 0 ? 0.0 : round(positive / (double) pnTotal);
-        double negativeShare = pnTotal == 0 ? 0.0 : round(negative / (double) pnTotal);
-
-        List<ReportDtos.CategorySeriesItem> ratingsByCategory = ratingsByCategory(from, to, teamId).series();
-        List<ReportDtos.PositivityByPersonItem> positivityByPerson =
-            positivityByPerson(from, to, departmentId, teamId, 20, "total").items();
-        List<ReportDtos.SubcategoryFrequencyItem> subcategoryFrequency =
-            subcategoryFrequency(from, to, departmentId, teamId, null, 30, "total").items();
-        ReportDtos.TrendResponse trend = trend("responses", "month", from, to, teamId);
+        List<FeedbackRecord> reviews = filteredFeedback(from, to, departmentId, teamId, personId, null);
+        ReportDtos.SummaryKpis kpis = buildKpis(reviews, departmentId, teamId, personId);
+        ReportDtos.TrendResponse trend = trend("responses", "month", from, to, departmentId, teamId, personId);
 
         return new ReportDtos.DashboardResponse(
             new ReportDtos.ReportPeriod(from.toString(), to.toString()),
             new ReportDtos.ScopeWithPersonDto(departmentId, teamId, personId),
-            new ReportDtos.DashboardKpis(responses, uniqueAuthors, uniqueTargets, avgRating, positiveShare, negativeShare),
+            kpis,
             new ReportDtos.DashboardCharts(
-                ratingsByCategory,
-                new ReportDtos.DashboardTrend(trend.metric(), "month", trend.points()),
-                positivityByPerson,
-                subcategoryFrequency
-            )
+                ratingsByCategory(from, to, departmentId, teamId, personId).series(),
+                new ReportDtos.DashboardTrend(trend.metric(), trend.granularity(), trend.points()),
+                positivityByPerson(from, to, departmentId, teamId, 20, "total").items(),
+                subcategoryFrequency(from, to, departmentId, teamId, personId, null, 30, "total").items()
+            ),
+            new ReportDtos.DashboardInsights(topTags(from, to, departmentId, teamId, personId, 5))
         );
     }
 
-    @Override
-    public ReportDtos.TopSubcategoriesInsightsResponse topSubcategories(LocalDate from,
-                                                                        LocalDate to,
-                                                                        String departmentId,
-                                                                        String teamId,
-                                                                        int limit) {
-        List<FeedbackRecord> feedback = filteredFeedback(from, to, departmentId, teamId, null, null);
-        Map<String, String> subcategoryNames = subcategoryNames();
-
-        List<ReportDtos.TopSubcategoryInsightItem> all = feedback.stream()
-            .collect(Collectors.groupingBy(FeedbackRecord::subcategoryId))
-            .entrySet().stream()
-            .map(e -> new ReportDtos.TopSubcategoryInsightItem(
-                e.getKey(),
-                subcategoryNames.getOrDefault(e.getKey(), e.getKey()),
-                round(average(e.getValue().stream().map(FeedbackRecord::rating).toList())),
-                e.getValue().size()
-            ))
-            .toList();
-
-        int safeLimit = safeLimit(limit, 5);
-        List<ReportDtos.TopSubcategoryInsightItem> best = all.stream()
-            .sorted(Comparator.comparingDouble(ReportDtos.TopSubcategoryInsightItem::avgRating).reversed()
-                .thenComparingLong(ReportDtos.TopSubcategoryInsightItem::count).reversed())
-            .limit(safeLimit)
-            .toList();
-
-        List<ReportDtos.TopSubcategoryInsightItem> worst = all.stream()
-            .sorted(Comparator.comparingDouble(ReportDtos.TopSubcategoryInsightItem::avgRating)
-                .thenComparingLong(ReportDtos.TopSubcategoryInsightItem::count).reversed())
-            .limit(safeLimit)
-            .toList();
-
-        return new ReportDtos.TopSubcategoriesInsightsResponse(
-            new ReportDtos.ReportPeriod(from.toString(), to.toString()),
-            best,
-            worst
+    private ReportDtos.SummaryKpis buildKpis(List<FeedbackRecord> reviews, String departmentId, String teamId, String personId) {
+        long responses = reviews.size();
+        long positive = reviews.stream().filter(r -> resolveSentiment(r, subcategoryById()) == FeedbackRecord.Sentiment.POSITIVE).count();
+        long negative = reviews.stream().filter(r -> resolveSentiment(r, subcategoryById()) == FeedbackRecord.Sentiment.NEGATIVE).count();
+        long uniqueAuthors = reviews.stream().map(FeedbackRecord::authorPersonId).filter(Objects::nonNull).distinct().count();
+        long uniqueTargets = reviews.stream().map(FeedbackRecord::targetPersonId).filter(Objects::nonNull).distinct().count();
+        double avgRating = round(reviews.stream().filter(r -> r.rating() != null).mapToInt(FeedbackRecord::rating).average().orElse(0.0));
+        long pnTotal = positive + negative;
+        double positiveShare = pnTotal == 0 ? 0.0 : round(positive / (double) pnTotal);
+        double negativeShare = pnTotal == 0 ? 0.0 : round(negative / (double) pnTotal);
+        long totalTargetsInScope = peopleInScope(departmentId, teamId, personId).size();
+        long targetsWithAtLeastOne = reviews.stream().map(FeedbackRecord::targetPersonId).distinct().count();
+        double coverageShare = totalTargetsInScope == 0 ? 0.0 : round(targetsWithAtLeastOne / (double) totalTargetsInScope);
+        return new ReportDtos.SummaryKpis(
+            responses,
+            positive,
+            negative,
+            uniqueAuthors,
+            uniqueTargets,
+            avgRating,
+            positiveShare,
+            negativeShare,
+            new ReportDtos.CoverageKpi(targetsWithAtLeastOne, totalTargetsInScope, coverageShare)
         );
     }
 
-    private ReportDtos.PositivityByPersonItem toPositivityItem(String personId,
-                                                               List<FeedbackRecord> feedback,
-                                                               Map<String, PersonRecord> people) {
-        long positive = feedback.stream().filter(this::isPositive).count();
-        long negative = feedback.stream().filter(this::isNegative).count();
-        long total = positive + negative;
-        double avgRating = average(
-            feedback.stream().filter(f -> isPositive(f) || isNegative(f)).map(FeedbackRecord::rating).toList()
-        );
-        String displayName = people.containsKey(personId) ? people.get(personId).displayName() : personId;
-        return new ReportDtos.PositivityByPersonItem(personId, displayName, positive, negative, total, round(avgRating));
+    private List<ReportDtos.TopTagItem> topTagsByPolarity(List<String> tags,
+                                                          Map<String, CategoryRecord.SubcategoryRecord> subMap,
+                                                          CategoryRecord.SubcategoryRecord.Polarity polarity,
+                                                          int limit) {
+        Map<String, Long> counts = tags.stream()
+            .filter(tagId -> {
+                CategoryRecord.SubcategoryRecord sub = subMap.get(tagId);
+                return sub != null && sub.polarity() == polarity;
+            })
+            .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        long total = counts.values().stream().mapToLong(Long::longValue).sum();
+        return counts.entrySet().stream()
+            .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+            .limit(safeLimit(limit, 5))
+            .map(e -> {
+                CategoryRecord.SubcategoryRecord sub = subMap.get(e.getKey());
+                double share = total == 0 ? 0.0 : round(e.getValue() / (double) total);
+                return new ReportDtos.TopTagItem(e.getKey(), sub != null ? sub.name() : e.getKey(), e.getValue(), share);
+            })
+            .toList();
     }
 
     private List<FeedbackRecord> filteredFeedback(LocalDate from,
@@ -251,56 +258,136 @@ public class MockReportingClient implements ReportingClient {
                                                   String teamId,
                                                   String personId,
                                                   String categoryId) {
-        Map<String, TaskRecord> tasks = tasksById();
-        Map<String, PersonRecord> people = peopleById();
-
+        Set<String> peopleInScope = peopleInScope(departmentId, teamId, personId);
+        Map<String, String> tagToCategory = subcategoryToCategory();
         return dataStore.feedback().stream()
-            .filter(f -> {
-                TaskRecord task = tasks.get(f.taskId());
-                return task != null && !task.periodTo().isBefore(from) && !task.periodFrom().isAfter(to);
+            .filter(r -> {
+                LocalDate date = toDate(r);
+                return !(date.isBefore(from) || date.isAfter(to));
             })
-            .filter(f -> categoryId == null || categoryId.equals(f.categoryId()))
-            .filter(f -> personId == null || personId.equals(f.targetPersonId()))
-            .filter(f -> {
-                PersonRecord target = people.get(f.targetPersonId());
-                if (target == null) {
-                    return false;
-                }
-                boolean departmentMatch = departmentId == null || departmentId.equals(target.departmentId());
-                boolean teamMatch = teamId == null || teamId.equals(target.teamId());
-                return departmentMatch && teamMatch;
-            })
+            .filter(r -> peopleInScope.contains(r.targetPersonId()))
+            .filter(r -> categoryId == null || r.tagIds().stream().anyMatch(tag -> categoryId.equals(tagToCategory.get(tag))))
             .toList();
+    }
+
+    private Set<String> peopleInScope(String departmentId, String teamId, String personId) {
+        return dataStore.people().stream()
+            .filter(p -> personId == null || personId.equals(p.id()))
+            .filter(p -> departmentId == null || departmentId.equals(p.departmentId()))
+            .filter(p -> teamId == null || teamId.equals(p.teamId()))
+            .map(PersonRecord::id)
+            .collect(Collectors.toSet());
+    }
+
+    private LocalDate toDate(FeedbackRecord review) {
+        return LocalDate.ofInstant(review.createdAt(), ZoneOffset.UTC);
+    }
+
+    private String primaryCategoryId(FeedbackRecord review, Map<String, String> tagToCategory) {
+        if (review.tagIds() == null || review.tagIds().isEmpty()) {
+            return null;
+        }
+        return tagToCategory.get(review.tagIds().getFirst());
+    }
+
+    private String bucketKey(LocalDate date, String granularity) {
+        if ("week".equals(granularity)) {
+            int year = date.get(IsoFields.WEEK_BASED_YEAR);
+            int week = date.get(WeekFields.ISO.weekOfWeekBasedYear());
+            return "%d-W%02d".formatted(year, week);
+        }
+        return "%04d-%02d".formatted(date.getYear(), date.getMonthValue());
+    }
+
+    private List<String> enumerateBuckets(LocalDate from, LocalDate to, String granularity) {
+        List<String> axis = new ArrayList<>();
+        LocalDate cursor = from;
+        while (!cursor.isAfter(to)) {
+            String key = bucketKey(cursor, granularity);
+            if (axis.isEmpty() || !axis.getLast().equals(key)) {
+                axis.add(key);
+            }
+            cursor = "week".equals(granularity) ? cursor.plusWeeks(1) : cursor.plusMonths(1).withDayOfMonth(1);
+        }
+        return axis;
+    }
+
+    private double metricValue(String metric, List<FeedbackRecord> reviews) {
+        long responses = reviews.size();
+        long positive = reviews.stream().filter(r -> resolveSentiment(r, subcategoryById()) == FeedbackRecord.Sentiment.POSITIVE).count();
+        long negative = reviews.stream().filter(r -> resolveSentiment(r, subcategoryById()) == FeedbackRecord.Sentiment.NEGATIVE).count();
+        long pnTotal = positive + negative;
+        if ("avgRating".equals(metric)) {
+            return reviews.stream().filter(r -> r.rating() != null).mapToInt(FeedbackRecord::rating).average().orElse(0.0);
+        }
+        if ("positiveShare".equals(metric)) {
+            return pnTotal == 0 ? 0.0 : positive / (double) pnTotal;
+        }
+        if ("negativeShare".equals(metric)) {
+            return pnTotal == 0 ? 0.0 : negative / (double) pnTotal;
+        }
+        return responses;
+    }
+
+    private ReportDtos.PositivityByPersonItem toPositivityItem(String personId,
+                                                               List<FeedbackRecord> reviews,
+                                                               Map<String, PersonRecord> people) {
+        long positive = reviews.stream().filter(r -> resolveSentiment(r, subcategoryById()) == FeedbackRecord.Sentiment.POSITIVE).count();
+        long negative = reviews.stream().filter(r -> resolveSentiment(r, subcategoryById()) == FeedbackRecord.Sentiment.NEGATIVE).count();
+        long total = positive + negative;
+        double avgRating = round(reviews.stream().filter(r -> r.rating() != null).mapToInt(FeedbackRecord::rating).average().orElse(0.0));
+        String displayName = people.containsKey(personId) ? people.get(personId).displayName() : personId;
+        return new ReportDtos.PositivityByPersonItem(personId, displayName, positive, negative, total, avgRating);
+    }
+
+    private FeedbackRecord.Sentiment resolveSentiment(FeedbackRecord review, Map<String, CategoryRecord.SubcategoryRecord> subMap) {
+        if (review.sentiment() != null) {
+            return review.sentiment();
+        }
+        if (review.rating() != null) {
+            if (review.rating() >= 4) {
+                return FeedbackRecord.Sentiment.POSITIVE;
+            }
+            if (review.rating() <= 2) {
+                return FeedbackRecord.Sentiment.NEGATIVE;
+            }
+        }
+        long pos = review.tagIds().stream()
+            .map(subMap::get)
+            .filter(s -> s != null && s.polarity() == CategoryRecord.SubcategoryRecord.Polarity.POSITIVE)
+            .count();
+        long neg = review.tagIds().stream()
+            .map(subMap::get)
+            .filter(s -> s != null && s.polarity() == CategoryRecord.SubcategoryRecord.Polarity.NEGATIVE)
+            .count();
+        if (pos == neg) {
+            return null;
+        }
+        return pos > neg ? FeedbackRecord.Sentiment.POSITIVE : FeedbackRecord.Sentiment.NEGATIVE;
     }
 
     private Map<String, String> categoryNames() {
         return dataStore.categories().stream().collect(Collectors.toMap(CategoryRecord::id, CategoryRecord::name));
     }
 
-    private Map<String, String> subcategoryNames() {
-        Map<String, String> names = new LinkedHashMap<>();
+    private Map<String, String> subcategoryToCategory() {
+        Map<String, String> map = new LinkedHashMap<>();
         for (CategoryRecord category : dataStore.categories()) {
-            for (CategoryRecord.SubcategoryRecord sub : category.subcategories()) {
-                names.put(sub.id(), sub.name());
+            for (CategoryRecord.SubcategoryRecord subcategory : category.subcategories()) {
+                map.put(subcategory.id(), category.id());
             }
         }
-        return names;
+        return map;
+    }
+
+    private Map<String, CategoryRecord.SubcategoryRecord> subcategoryById() {
+        return dataStore.categories().stream()
+            .flatMap(c -> c.subcategories().stream())
+            .collect(Collectors.toMap(CategoryRecord.SubcategoryRecord::id, Function.identity()));
     }
 
     private Map<String, PersonRecord> peopleById() {
         return dataStore.people().stream().collect(Collectors.toMap(PersonRecord::id, Function.identity()));
-    }
-
-    private Map<String, TaskRecord> tasksById() {
-        return dataStore.tasks().stream().collect(Collectors.toMap(TaskRecord::id, Function.identity()));
-    }
-
-    private boolean isPositive(FeedbackRecord f) {
-        return f.rating() >= 4;
-    }
-
-    private boolean isNegative(FeedbackRecord f) {
-        return f.rating() <= 2;
     }
 
     private Comparator<ReportDtos.PositivityByPersonItem> positivityComparator(String sort) {
@@ -331,13 +418,6 @@ public class MockReportingClient implements ReportingClient {
             return defaultValue;
         }
         return Math.min(limit, 200);
-    }
-
-    private double average(List<Integer> values) {
-        if (values.isEmpty()) {
-            return 0.0;
-        }
-        return values.stream().mapToInt(Integer::intValue).average().orElse(0.0);
     }
 
     private double round(double value) {

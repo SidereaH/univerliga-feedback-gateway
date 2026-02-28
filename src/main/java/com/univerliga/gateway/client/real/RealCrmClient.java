@@ -3,8 +3,10 @@ package com.univerliga.gateway.client.real;
 import com.univerliga.gateway.client.CrmClient;
 import com.univerliga.gateway.model.PersonRecord;
 import com.univerliga.gateway.model.TaskRecord;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -13,10 +15,15 @@ import java.util.Optional;
 @Component
 @ConditionalOnProperty(prefix = "gateway", name = "mode", havingValue = "real")
 public class RealCrmClient implements CrmClient {
+    private final RestClient restClient;
+
+    public RealCrmClient(@Qualifier("crmRestClient") RestClient restClient) {
+        this.restClient = restClient;
+    }
 
     @Override
     public List<PersonRecord> findPeople(String query, String departmentId, String teamId) {
-        throw new UnsupportedOperationException("TODO: integrate real CRM HTTP API");
+        throw new UnsupportedOperationException("TODO: integrate real CRM HTTP API via " + restClient);
     }
 
     @Override

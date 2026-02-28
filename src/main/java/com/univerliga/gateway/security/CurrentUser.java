@@ -15,6 +15,10 @@ public record CurrentUser(String username, String personId, Set<String> roles) {
         return hasRole(SecurityRoles.MANAGER);
     }
 
+    public boolean isHr() {
+        return hasRole(SecurityRoles.HR);
+    }
+
     public boolean isEmployee() {
         return hasRole(SecurityRoles.EMPLOYEE);
     }

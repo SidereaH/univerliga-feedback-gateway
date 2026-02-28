@@ -13,6 +13,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -37,33 +39,34 @@ class ReportingServiceTest {
 
     @Test
     void employeeCannotReadReports() {
-        when(currentUserService.getCurrentUser()).thenReturn(new CurrentUser("employee", "p_employee", java.util.Set.of(SecurityRoles.EMPLOYEE)));
+        when(currentUserService.getCurrentUser()).thenReturn(new CurrentUser("employee", "p_employee", Set.of(SecurityRoles.EMPLOYEE)));
 
         ApiException ex = assertThrows(ApiException.class,
-            () -> reportingService.summary("2026-01-01", "2026-01-31", null, null));
+            () -> reportingService.summary("2026-01-01", "2026-01-31", null, null, null));
 
         assertEquals("FORBIDDEN", ex.getCode());
     }
 
     @Test
-    void managerCanReadReports() {
-        when(currentUserService.getCurrentUser()).thenReturn(new CurrentUser("manager", "p_manager", java.util.Set.of(SecurityRoles.MANAGER)));
+    void hrCanReadReports() {
+        when(currentUserService.getCurrentUser()).thenReturn(new CurrentUser("hr", "p_hr", Set.of(SecurityRoles.HR)));
         ReportDtos.SummaryResponse expected = new ReportDtos.SummaryResponse(
             new ReportDtos.ReportPeriod("2026-01-01", "2026-01-31"),
-            new ReportDtos.Kpis(10, 4.0, 0.7)
+            new ReportDtos.ScopeWithPersonDto("d_1", "t_1", null),
+            new ReportDtos.SummaryKpis(10, 7, 3, 4, 5, 4.0, 0.7, 0.3, new ReportDtos.CoverageKpi(5, 8, 0.63))
         );
-        when(reportingClient.summary(LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), "d_1", "t_1"))
+        when(reportingClient.summary(LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), "d_1", "t_1", null))
             .thenReturn(expected);
 
-        ReportDtos.SummaryResponse result = reportingService.summary("2026-01-01", "2026-01-31", "d_1", "t_1");
+        ReportDtos.SummaryResponse result = reportingService.summary("2026-01-01", "2026-01-31", "d_1", "t_1", null);
 
         assertEquals(10, result.kpis().responses());
-        verify(reportingClient).summary(LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), "d_1", "t_1");
+        verify(reportingClient).summary(LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), "d_1", "t_1", null);
     }
 
     @Test
     void invalidDateReturnsValidationError() {
-        when(currentUserService.getCurrentUser()).thenReturn(new CurrentUser("manager", "p_manager", java.util.Set.of(SecurityRoles.MANAGER)));
+        when(currentUserService.getCurrentUser()).thenReturn(new CurrentUser("manager", "p_manager", Set.of(SecurityRoles.MANAGER)));
 
         ApiException ex = assertThrows(ApiException.class,
             () -> reportingService.dashboard("bad", "2026-01-31", null, null, null));
@@ -72,20 +75,20 @@ class ReportingServiceTest {
     }
 
     @Test
-    void managerCanReadTopSubcategories() {
-        when(currentUserService.getCurrentUser()).thenReturn(new CurrentUser("manager", "p_manager", java.util.Set.of(SecurityRoles.MANAGER)));
-        ReportDtos.TopSubcategoriesInsightsResponse expected = new ReportDtos.TopSubcategoriesInsightsResponse(
+    void managerCanReadTopTags() {
+        when(currentUserService.getCurrentUser()).thenReturn(new CurrentUser("manager", "p_manager", Set.of(SecurityRoles.MANAGER)));
+        ReportDtos.TopTagsResponse expected = new ReportDtos.TopTagsResponse(
             new ReportDtos.ReportPeriod("2026-01-01", "2026-01-31"),
-            java.util.List.of(),
-            java.util.List.of()
+            List.of(),
+            List.of()
         );
-        when(reportingClient.topSubcategories(LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), "d_1", "t_1", 5))
+        when(reportingClient.topTags(LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), "d_1", "t_1", null, 5))
             .thenReturn(expected);
 
-        ReportDtos.TopSubcategoriesInsightsResponse result =
-            reportingService.topSubcategories("2026-01-01", "2026-01-31", "d_1", "t_1", 5);
+        ReportDtos.TopTagsResponse result =
+            reportingService.topTags("2026-01-01", "2026-01-31", "d_1", "t_1", null, 5);
 
         assertEquals("2026-01-01", result.period().from());
-        verify(reportingClient).topSubcategories(LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), "d_1", "t_1", 5);
+        verify(reportingClient).topTags(LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), "d_1", "t_1", null, 5);
     }
 }

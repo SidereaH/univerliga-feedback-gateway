@@ -26,38 +26,43 @@ public class ReportsController {
     }
 
     @GetMapping("/summary")
-    @Operation(summary = "Summary report", description = "Returns top-level KPIs for selected period and scope")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @Operation(summary = "Summary report with coverage", description = "Returns top-level KPIs including coverage for selected scope")
+    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER')")
     public ApiEnvelope<ReportDtos.SummaryResponse> summary(@Parameter(description = "Period start (YYYY-MM-DD)") @RequestParam String periodFrom,
                                                            @Parameter(description = "Period end (YYYY-MM-DD)") @RequestParam String periodTo,
                                                            @Parameter(description = "Department filter") @RequestParam(required = false) String departmentId,
-                                                           @Parameter(description = "Team filter") @RequestParam(required = false) String teamId) {
-        return responseFactory.ok(reportingService.summary(periodFrom, periodTo, departmentId, teamId));
+                                                           @Parameter(description = "Team filter") @RequestParam(required = false) String teamId,
+                                                           @Parameter(description = "Person filter") @RequestParam(required = false) String personId) {
+        return responseFactory.ok(reportingService.summary(periodFrom, periodTo, departmentId, teamId, personId));
     }
 
     @GetMapping("/charts/ratings-by-category")
-    @Operation(summary = "Ratings grouped by category", description = "Builds category bar chart for selected period")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @Operation(summary = "Ratings grouped by category", description = "Builds category bar chart for selected period and scope")
+    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER')")
     public ApiEnvelope<ReportDtos.RatingsByCategoryResponse> ratingsByCategory(@Parameter(description = "Period start (YYYY-MM-DD)") @RequestParam String periodFrom,
                                                                                 @Parameter(description = "Period end (YYYY-MM-DD)") @RequestParam String periodTo,
-                                                                                @Parameter(description = "Team filter") @RequestParam(required = false) String teamId) {
-        return responseFactory.ok(reportingService.ratingsByCategory(periodFrom, periodTo, teamId));
+                                                                                @Parameter(description = "Department filter") @RequestParam(required = false) String departmentId,
+                                                                                @Parameter(description = "Team filter") @RequestParam(required = false) String teamId,
+                                                                                @Parameter(description = "Person filter") @RequestParam(required = false) String personId) {
+        return responseFactory.ok(reportingService.ratingsByCategory(periodFrom, periodTo, departmentId, teamId, personId));
     }
 
     @GetMapping("/charts/trend")
-    @Operation(summary = "Trend report", description = "Builds time series trend chart")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
-    public ApiEnvelope<ReportDtos.TrendResponse> trend(@Parameter(description = "Metric: responses or avgRating") @RequestParam String metric,
-                                                       @Parameter(description = "Trend granularity") @RequestParam(defaultValue = "month") String period,
+    @Operation(summary = "Trend report", description = "Builds month/week trend for responses, avgRating, positiveShare, negativeShare")
+    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER')")
+    public ApiEnvelope<ReportDtos.TrendResponse> trend(@Parameter(description = "Metric: responses|avgRating|positiveShare|negativeShare") @RequestParam String metric,
+                                                       @Parameter(description = "Granularity: month|week") @RequestParam(defaultValue = "month") String granularity,
                                                        @Parameter(description = "Period start (YYYY-MM-DD)") @RequestParam String from,
                                                        @Parameter(description = "Period end (YYYY-MM-DD)") @RequestParam String to,
-                                                       @Parameter(description = "Team filter") @RequestParam(required = false) String teamId) {
-        return responseFactory.ok(reportingService.trend(metric, period, from, to, teamId));
+                                                       @Parameter(description = "Department filter") @RequestParam(required = false) String departmentId,
+                                                       @Parameter(description = "Team filter") @RequestParam(required = false) String teamId,
+                                                       @Parameter(description = "Person filter") @RequestParam(required = false) String personId) {
+        return responseFactory.ok(reportingService.trend(metric, granularity, from, to, departmentId, teamId, personId));
     }
 
     @GetMapping("/charts/positivity-by-person")
     @Operation(summary = "Positivity/negativity balance by person", description = "Returns ranking with positive/negative counts and average rating")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER')")
     public ApiEnvelope<ReportDtos.PositivityByPersonResponse> positivityByPerson(@Parameter(description = "Period start (YYYY-MM-DD)") @RequestParam String periodFrom,
                                                                                   @Parameter(description = "Period end (YYYY-MM-DD)") @RequestParam String periodTo,
                                                                                   @Parameter(description = "Department filter") @RequestParam(required = false) String departmentId,
@@ -68,37 +73,39 @@ public class ReportsController {
     }
 
     @GetMapping("/charts/subcategory-frequency")
-    @Operation(summary = "Subcategory frequency", description = "Returns top subcategories by positive/negative frequency")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @Operation(summary = "Subcategory frequency", description = "Returns tag frequency split by polarity")
+    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER')")
     public ApiEnvelope<ReportDtos.SubcategoryFrequencyResponse> subcategoryFrequency(@Parameter(description = "Period start (YYYY-MM-DD)") @RequestParam String periodFrom,
                                                                                       @Parameter(description = "Period end (YYYY-MM-DD)") @RequestParam String periodTo,
                                                                                       @Parameter(description = "Department filter") @RequestParam(required = false) String departmentId,
                                                                                       @Parameter(description = "Team filter") @RequestParam(required = false) String teamId,
+                                                                                      @Parameter(description = "Person filter") @RequestParam(required = false) String personId,
                                                                                       @Parameter(description = "Category filter") @RequestParam(required = false) String categoryId,
                                                                                       @Parameter(description = "Maximum items in result") @RequestParam(defaultValue = "30") int limit,
                                                                                       @Parameter(description = "Sort key: total|positive|negative") @RequestParam(defaultValue = "total") String sort) {
-        return responseFactory.ok(reportingService.subcategoryFrequency(periodFrom, periodTo, departmentId, teamId, categoryId, limit, sort));
+        return responseFactory.ok(reportingService.subcategoryFrequency(periodFrom, periodTo, departmentId, teamId, personId, categoryId, limit, sort));
+    }
+
+    @GetMapping("/insights/top-tags")
+    @Operation(summary = "Top tags split by polarity", description = "Returns top positive and top negative tags for selected scope")
+    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER')")
+    public ApiEnvelope<ReportDtos.TopTagsResponse> topTags(@Parameter(description = "Period start (YYYY-MM-DD)") @RequestParam String periodFrom,
+                                                           @Parameter(description = "Period end (YYYY-MM-DD)") @RequestParam String periodTo,
+                                                           @Parameter(description = "Department filter") @RequestParam(required = false) String departmentId,
+                                                           @Parameter(description = "Team filter") @RequestParam(required = false) String teamId,
+                                                           @Parameter(description = "Person filter") @RequestParam(required = false) String personId,
+                                                           @Parameter(description = "Maximum items per polarity") @RequestParam(defaultValue = "5") int limit) {
+        return responseFactory.ok(reportingService.topTags(periodFrom, periodTo, departmentId, teamId, personId, limit));
     }
 
     @GetMapping("/dashboard")
-    @Operation(summary = "Composite manager dashboard", description = "Returns KPI block and all dashboard charts in one request")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @Operation(summary = "Composite dashboard", description = "Returns KPIs with coverage, chart blocks and top-tags insights")
+    @PreAuthorize("hasAnyRole('ADMIN','HR','MANAGER')")
     public ApiEnvelope<ReportDtos.DashboardResponse> dashboard(@Parameter(description = "Period start (YYYY-MM-DD)") @RequestParam String periodFrom,
                                                                @Parameter(description = "Period end (YYYY-MM-DD)") @RequestParam String periodTo,
                                                                @Parameter(description = "Department filter") @RequestParam(required = false) String departmentId,
                                                                @Parameter(description = "Team filter") @RequestParam(required = false) String teamId,
-                                                               @Parameter(description = "Optional person filter") @RequestParam(required = false) String personId) {
+                                                               @Parameter(description = "Person filter") @RequestParam(required = false) String personId) {
         return responseFactory.ok(reportingService.dashboard(periodFrom, periodTo, departmentId, teamId, personId));
-    }
-
-    @GetMapping("/insights/top-subcategories")
-    @Operation(summary = "Top best/worst subcategories", description = "Returns top subcategories by average rating")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
-    public ApiEnvelope<ReportDtos.TopSubcategoriesInsightsResponse> topSubcategories(@Parameter(description = "Period start (YYYY-MM-DD)") @RequestParam String periodFrom,
-                                                                                      @Parameter(description = "Period end (YYYY-MM-DD)") @RequestParam String periodTo,
-                                                                                      @Parameter(description = "Department filter") @RequestParam(required = false) String departmentId,
-                                                                                      @Parameter(description = "Team filter") @RequestParam(required = false) String teamId,
-                                                                                      @Parameter(description = "Maximum number of best/worst items") @RequestParam(defaultValue = "5") int limit) {
-        return responseFactory.ok(reportingService.topSubcategories(periodFrom, periodTo, departmentId, teamId, limit));
     }
 }

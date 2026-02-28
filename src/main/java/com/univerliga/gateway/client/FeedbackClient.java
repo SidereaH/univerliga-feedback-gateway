@@ -4,21 +4,24 @@ import com.univerliga.gateway.model.CategoryRecord;
 import com.univerliga.gateway.model.FeedbackRecord;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface FeedbackClient {
     List<CategoryRecord> categories();
 
-    FeedbackRecord createFeedback(String taskId,
-                                  String targetPersonId,
-                                  String authorPersonId,
-                                  String categoryId,
-                                  String subcategoryId,
-                                  int rating,
-                                  String comment);
+    FeedbackRecord createReview(FeedbackRecord draft);
 
-    List<FeedbackRecord> findByAuthor(String authorPersonId, String taskId);
+    Optional<FeedbackRecord> findById(String reviewId);
 
-    List<FeedbackRecord> findInbox(String targetPersonId, String taskId);
+    FeedbackRecord updateReview(String reviewId, Integer rating, FeedbackRecord.Sentiment sentiment, List<String> tagIds, String comment);
 
-    List<FeedbackRecord> findRaw(String taskId, String targetPersonId, String authorPersonId);
+    List<FeedbackRecord> findMy(String authorPersonId, FeedbackRecord.ContextType contextType, String contextRef);
+
+    List<FeedbackRecord> findInbox(String targetPersonId, FeedbackRecord.ContextType contextType, String contextRef);
+
+    List<FeedbackRecord> findRaw(FeedbackRecord.ContextType contextType, String contextRef, String targetPersonId, String authorPersonId);
+
+    Optional<FeedbackRecord> findDuplicate(String authorPersonId, String targetPersonId, FeedbackRecord.ContextType contextType, String contextRef);
+
+    List<FeedbackRecord> findAll();
 }

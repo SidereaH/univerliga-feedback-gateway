@@ -1,16 +1,29 @@
 package com.univerliga.gateway.model;
 
 import java.time.Instant;
+import java.util.List;
 
 public record FeedbackRecord(
     String id,
-    String taskId,
     String targetPersonId,
     String authorPersonId,
-    String categoryId,
-    String subcategoryId,
-    int rating,
+    ContextType contextType,
+    String contextRef,
+    Integer rating,
+    Sentiment sentiment,
+    List<String> tagIds,
     String comment,
-    Instant createdAt
+    Instant createdAt,
+    Instant updatedAt
 ) {
+    public enum ContextType {
+        TASK,
+        EPISODE,
+        HALF_YEAR_REVIEW
+    }
+
+    public enum Sentiment {
+        POSITIVE,
+        NEGATIVE
+    }
 }

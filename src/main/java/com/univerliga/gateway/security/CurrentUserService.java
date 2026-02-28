@@ -34,6 +34,9 @@ public class CurrentUserService {
         if ("employee".equalsIgnoreCase(username)) {
             return "p_employee";
         }
+        if ("hr".equalsIgnoreCase(username)) {
+            return "p_hr";
+        }
         return "p_" + username;
     }
 }
