@@ -14,21 +14,20 @@ docker compose up --build
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - Health: `http://localhost:8080/actuator/health`
 
-## Получение токена
+## Получение токена через gateway
 
-Клиент в realm: `univerliga-gateway`, secret: `gateway-secret`.
+Gateway проксирует авторизацию в Keycloak. Клиент в realm: `univerliga-gateway`, secret: `gateway-secret`.
 
 ```bash
-curl -s -X POST 'http://localhost:8081/realms/univerliga/protocol/openid-connect/token' \
-  -H 'Content-Type: application/x-www-form-urlencoded' \
-  --data-urlencode 'grant_type=password' \
-  --data-urlencode 'client_id=univerliga-gateway' \
-  --data-urlencode 'client_secret=gateway-secret' \
-  --data-urlencode 'username=employee' \
-  --data-urlencode 'password=employee'
+curl -s -X POST 'http://localhost:8080/api/v1/auth/token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "username": "employee",
+    "password": "employee"
+  }'
 ```
 
-Из ответа возьмите `access_token`.
+Из ответа возьмите `data.accessToken`.
 
 ## Примеры вызовов
 

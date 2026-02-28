@@ -48,7 +48,10 @@ public final class ReportDtos {
     }
 
     @Schema(description = "Summary response")
-    public record SummaryResponse(ReportPeriod period, Kpis kpis) {
+    public record SummaryResponse(
+        @Schema(description = "Requested period") ReportPeriod period,
+        @Schema(description = "Computed KPI values") Kpis kpis
+    ) {
     }
 
     @Schema(description = "Category rating series item")
@@ -93,8 +96,8 @@ public final class ReportDtos {
 
     @Schema(description = "Positivity by person response")
     public record PositivityByPersonResponse(
-        ReportPeriod period,
-        ScopeDto scope,
+        @Schema(description = "Requested period") ReportPeriod period,
+        @Schema(description = "Applied filters") ScopeDto scope,
         @ArraySchema(schema = @Schema(implementation = PositivityByPersonItem.class)) List<PositivityByPersonItem> items
     ) {
     }
@@ -111,8 +114,8 @@ public final class ReportDtos {
 
     @Schema(description = "Subcategory frequency response")
     public record SubcategoryFrequencyResponse(
-        ReportPeriod period,
-        ScopeWithCategoryDto scope,
+        @Schema(description = "Requested period") ReportPeriod period,
+        @Schema(description = "Applied filters") ScopeWithCategoryDto scope,
         @ArraySchema(schema = @Schema(implementation = SubcategoryFrequencyItem.class)) List<SubcategoryFrequencyItem> items
     ) {
     }
@@ -139,7 +142,7 @@ public final class ReportDtos {
     @Schema(description = "Dashboard charts block")
     public record DashboardCharts(
         @ArraySchema(schema = @Schema(implementation = CategorySeriesItem.class)) List<CategorySeriesItem> ratingsByCategory,
-        DashboardTrend trend,
+        @Schema(description = "Time-series chart") DashboardTrend trend,
         @ArraySchema(schema = @Schema(implementation = PositivityByPersonItem.class)) List<PositivityByPersonItem> positivityByPerson,
         @ArraySchema(schema = @Schema(implementation = SubcategoryFrequencyItem.class)) List<SubcategoryFrequencyItem> subcategoryFrequency
     ) {
@@ -147,10 +150,10 @@ public final class ReportDtos {
 
     @Schema(description = "Composite dashboard response")
     public record DashboardResponse(
-        ReportPeriod period,
-        ScopeWithPersonDto scope,
-        DashboardKpis kpis,
-        DashboardCharts charts
+        @Schema(description = "Requested period") ReportPeriod period,
+        @Schema(description = "Applied filters") ScopeWithPersonDto scope,
+        @Schema(description = "Dashboard KPIs") DashboardKpis kpis,
+        @Schema(description = "Dashboard chart groups") DashboardCharts charts
     ) {
     }
 
@@ -165,7 +168,7 @@ public final class ReportDtos {
 
     @Schema(description = "Best and worst subcategories response")
     public record TopSubcategoriesInsightsResponse(
-        ReportPeriod period,
+        @Schema(description = "Requested period") ReportPeriod period,
         @ArraySchema(schema = @Schema(implementation = TopSubcategoryInsightItem.class)) List<TopSubcategoryInsightItem> best,
         @ArraySchema(schema = @Schema(implementation = TopSubcategoryInsightItem.class)) List<TopSubcategoryInsightItem> worst
     ) {

@@ -27,7 +27,7 @@ public final class TaskDtos {
         @Schema(example = "Quarter review") String title,
         @Schema(example = "Review Q1 outcomes") String description,
         @Schema(example = "ACTIVE", allowableValues = {"DRAFT", "ACTIVE", "CLOSED"}) String status,
-        PeriodDto period,
+        @Schema(description = "Task period boundaries") PeriodDto period,
         @Schema(example = "p_10") String ownerId,
         @Schema(example = "p_11") String assigneeId,
         @ArraySchema(schema = @Schema(example = "p_11")) List<String> participantIds,
@@ -38,7 +38,7 @@ public final class TaskDtos {
     @Schema(description = "Paginated tasks list")
     public record TaskPage(
         @ArraySchema(schema = @Schema(implementation = TaskResponse.class)) List<TaskResponse> items,
-        PageDto page
+        @Schema(description = "Pagination data") PageDto page
     ) {
     }
 

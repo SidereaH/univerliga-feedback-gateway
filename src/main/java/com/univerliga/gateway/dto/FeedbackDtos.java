@@ -60,7 +60,7 @@ public final class FeedbackDtos {
         @Schema(example = "5") int rating,
         @Schema(example = "Great collaboration") String comment,
         @Schema(example = "2026-01-01T10:00:00Z") String createdAt,
-        VisibilityDto visibility
+        @Schema(description = "Visibility flags") VisibilityDto visibility
     ) {
     }
 
@@ -74,14 +74,14 @@ public final class FeedbackDtos {
         @Schema(example = "4") int rating,
         @Schema(example = "Thanks") String comment,
         @Schema(example = "2026-01-01T10:00:00Z") String createdAt,
-        VisibilityDto visibility
+        @Schema(description = "Visibility flags") VisibilityDto visibility
     ) {
     }
 
     @Schema(description = "Paginated feedback list")
     public record FeedbackPage(
         @ArraySchema(schema = @Schema(description = "Feedback items")) List<?> items,
-        PageDto page
+        @Schema(description = "Pagination data") PageDto page
     ) {
     }
 }

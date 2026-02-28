@@ -1,5 +1,5 @@
 services:
-  keycloak-db:
+  feedback-db:
     image: postgres:16
     environment:
       POSTGRES_DB: keycloak
@@ -10,6 +10,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - feedback-network
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.1
@@ -18,7 +20,7 @@ services:
       - --import-realm
     environment:
       KC_DB: postgres
-      KC_DB_URL_HOST: keycloak-db
+      KC_DB_URL_HOST: feedback-db
       KC_DB_URL_DATABASE: keycloak
       KC_DB_USERNAME: keycloak
       KC_DB_PASSWORD: keycloak
@@ -29,15 +31,28 @@ services:
     ports:
       - "8081:8080"
     depends_on:
-      keycloak-db:
+      feedback-db:
         condition: service_healthy
+    networks:
+      - feedback-network
 
   gateway:
     build: .
     environment:
       GATEWAY_JWT_ISSUER_URI: http://keycloak:8080/realms/univerliga
+      GATEWAY_AUTH_TOKEN_URL: http://keycloak:8080/realms/univerliga/protocol/openid-connect/token
       GATEWAY_MODE: mock
     ports:
       - "8080:8080"
     depends_on:
       - keycloak
+    networks:
+      - feedback-network
+
+
+networks:
+  feedback-network:
+    name: feedback-network
+    driver: bridge
+
+    external: false

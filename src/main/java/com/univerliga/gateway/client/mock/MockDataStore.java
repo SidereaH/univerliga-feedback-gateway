@@ -1,6 +1,7 @@
 package com.univerliga.gateway.client.mock;
 
 import com.univerliga.gateway.model.CategoryRecord;
+import com.univerliga.gateway.model.CategoryRecord.SubcategoryRecord.Polarity;
 import com.univerliga.gateway.model.FeedbackRecord;
 import com.univerliga.gateway.model.PersonRecord;
 import com.univerliga.gateway.model.TaskRecord;
@@ -52,14 +53,33 @@ public class MockDataStore {
         ));
 
         categories.addAll(List.of(
-            new CategoryRecord("cat_1", "Performance", List.of(
-                new CategoryRecord.SubcategoryRecord("sub_1", "Communication"),
-                new CategoryRecord.SubcategoryRecord("sub_2", "Delivery")
-            )),
-            new CategoryRecord("cat_2", "Culture", List.of(
-                new CategoryRecord.SubcategoryRecord("sub_3", "Teamwork"),
-                new CategoryRecord.SubcategoryRecord("sub_4", "Initiative")
-            ))
+                new CategoryRecord("cat_work", "По работе", List.of(
+                        // Коммуникация
+                        new CategoryRecord.SubcategoryRecord("sub_comm_good", "Доброжелательная / корректная коммуникация", Polarity.POSITIVE),
+                        new CategoryRecord.SubcategoryRecord("sub_comm_bad", "Грубость / некорректное общение", Polarity.NEGATIVE),
+
+                        // Экспертиза / помощь
+                        new CategoryRecord.SubcategoryRecord("sub_expert_high", "Высокая экспертность", Polarity.POSITIVE),
+                        new CategoryRecord.SubcategoryRecord("sub_help_explain", "Подробно объяснил / помог разобраться", Polarity.POSITIVE),
+                        new CategoryRecord.SubcategoryRecord("sub_wrong_advice", "Дал неверную рекомендацию / решение не сработало", Polarity.NEGATIVE),
+
+                        // Надежность / сроки
+                        new CategoryRecord.SubcategoryRecord("sub_deadline_help", "Выручил в дедлайн / помог вне рабочего времени", Polarity.POSITIVE),
+                        new CategoryRecord.SubcategoryRecord("sub_deadline_fail", "Сорвал договорённости по срокам/обещаниям", Polarity.NEGATIVE),
+
+                        // Ответственность / инициативность
+                        new CategoryRecord.SubcategoryRecord("sub_initiative", "Инициативность", Polarity.POSITIVE),
+                        new CategoryRecord.SubcategoryRecord("sub_avoid_hard", "Избегает сложных задач / “перекидывает” ответственность", Polarity.NEGATIVE),
+
+                        // Качество постановки задач (если актуально для твоей команды)
+                        new CategoryRecord.SubcategoryRecord("sub_tz_good", "Написал хорошее ТЗ / структурировал задачу", Polarity.POSITIVE),
+                        new CategoryRecord.SubcategoryRecord("sub_refuse_help", "Отказал в помощи без объяснения причин", Polarity.NEGATIVE)
+                )),
+
+                new CategoryRecord("cat_offtopic", "Оффтоп", List.of(
+                        new CategoryRecord.SubcategoryRecord("sub_teamwork", "Тимворк (вне задач)", Polarity.POSITIVE),
+                        new CategoryRecord.SubcategoryRecord("sub_social_conflict", "Конфликт/токсичность вне задач", Polarity.NEGATIVE)
+                ))
         ));
 
         for (int i = 1; i <= 30; i++) {

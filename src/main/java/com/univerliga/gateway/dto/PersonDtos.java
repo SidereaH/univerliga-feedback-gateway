@@ -42,7 +42,7 @@ public final class PersonDtos {
     @Schema(description = "Paginated people list")
     public record PeoplePage(
         @ArraySchema(schema = @Schema(implementation = PersonSummary.class)) List<PersonSummary> items,
-        PageDto page
+        @Schema(description = "Pagination data") PageDto page
     ) {
     }
 

@@ -1,15 +1,20 @@
 package com.univerliga.gateway.integration;
 
+import com.univerliga.gateway.dto.AuthDtos;
+import com.univerliga.gateway.service.AuthService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static com.univerliga.gateway.testutil.TestAuth.jwtFor;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -22,6 +27,9 @@ class GatewayIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockBean
+    private AuthService authService;
 
     @Test
     void unauthenticatedApiReturns401WithStandardError() throws Exception {
@@ -41,6 +49,25 @@ class GatewayIntegrationTest {
     void apiDocsArePublic() throws Exception {
         mockMvc.perform(get("/v3/api-docs"))
             .andExpect(status().isOk());
+    }
+
+    @Test
+    void tokenEndpointIsPublic() throws Exception {
+        when(authService.token(any())).thenReturn(new AuthDtos.TokenResponse(
+            "access-token", 300, 1800, "refresh-token", "Bearer", "profile email"));
+
+        mockMvc.perform(post("/api/v1/auth/token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "username": "employee",
+                      "password": "employee"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.accessToken").value("access-token"))
+            .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
+            .andExpect(header().exists("X-Request-Id"));
     }
 
     @Test
