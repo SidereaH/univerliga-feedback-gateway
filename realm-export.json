@@ -1,6 +1,7 @@
 {
   "realm": "univerliga",
   "enabled": true,
+  "sslRequired": "NONE",
   "roles": {
     "realm": [
       { "name": "ROLE_ADMIN" },
