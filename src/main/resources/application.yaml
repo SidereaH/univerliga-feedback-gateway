@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: univerliga-gateway
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${GATEWAY_JWT_ISSUER_URI:http://localhost:8081/realms/univerliga}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+server:
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force-response: true
+
+gateway:
+  mode: ${GATEWAY_MODE:mock}
+  version: v1
+  clients:
+    crm:
+      base-url: ${CRM_BASE_URL:http://crm:8080}
+    feedback:
+      base-url: ${FEEDBACK_BASE_URL:http://feedback:8080}
+    reporting:
+      base-url: ${REPORTING_BASE_URL:http://reporting:8080}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

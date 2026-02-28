@@ -1,0 +1,59 @@
+{
+  "realm": "univerliga",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      { "name": "ROLE_ADMIN" },
+      { "name": "ROLE_MANAGER" },
+      { "name": "ROLE_EMPLOYEE" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "univerliga-gateway",
+      "name": "univerliga-gateway",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "gateway-secret",
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "redirectUris": ["http://localhost:8080/*"],
+      "webOrigins": ["*"],
+      "defaultClientScopes": ["profile", "email", "roles"],
+      "protocolMappers": [
+        {
+          "name": "audience-gateway",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "univerliga-gateway",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
+      "realmRoles": ["ROLE_ADMIN"]
+    },
+    {
+      "username": "manager",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "manager", "temporary": false }],
+      "realmRoles": ["ROLE_MANAGER"]
+    },
+    {
+      "username": "employee",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "employee", "temporary": false }],
+      "realmRoles": ["ROLE_EMPLOYEE"]
+    }
+  ]
+}
