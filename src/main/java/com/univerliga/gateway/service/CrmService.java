@@ -28,10 +28,10 @@ public class CrmService {
 
     public PersonDtos.PeoplePage people(String query, String departmentId, String teamId, int page, int size) {
         CurrentUser user = currentUserService.getCurrentUser();
-        List<PersonRecord> filtered = crmClient.findPeople(query, departmentId, teamId);
-        if (user.isEmployee() && !user.isAdmin() && !user.isManager()) {
-            filtered = filtered.stream().filter(p -> p.id().equals(user.personId())).toList();
+        if (!user.isAdmin() && !user.isManager()) {
+            throw forbidden();
         }
+        List<PersonRecord> filtered = crmClient.findPeople(query, departmentId, teamId);
         List<PersonDtos.PersonSummary> items = PaginationUtils.slice(filtered, page, size).stream().map(this::toPersonSummary).toList();
         return new PersonDtos.PeoplePage(items, PaginationUtils.page(filtered, page, size));
     }

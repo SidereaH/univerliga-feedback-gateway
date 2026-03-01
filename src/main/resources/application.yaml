@@ -32,10 +32,8 @@ gateway:
       base-url: ${CRM_BASE_URL:http://crm:8080}
     feedback:
       base-url: ${FEEDBACK_BASE_URL:http://feedback:8080}
-    reporting:
-      base-url: ${REPORTING_BASE_URL:http://reporting:8080}
     analytics:
-      base-url: ${ANALYTICS_BASE_URL:http://reporting:8080}
+      base-url: ${ANALYTICS_BASE_URL:http://analytics:8080}
 
 springdoc:
   swagger-ui:

@@ -46,7 +46,7 @@ services:
       GATEWAY_JWT_ISSUER_URI: http://keycloak:8080/realms/univerliga
       GATEWAY_AUTH_TOKEN_URL: http://keycloak:8080/realms/univerliga/protocol/openid-connect/token
       GATEWAY_MODE: mock
-      ANALYTICS_BASE_URL: http://reporting:8080
+      ANALYTICS_BASE_URL: http://analytics:8080
     ports:
       - "8080:8080"
     depends_on:

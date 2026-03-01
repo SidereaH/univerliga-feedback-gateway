@@ -91,7 +91,6 @@ class AuthServiceTest {
             new GatewayProperties.Clients(
                 new GatewayProperties.ServiceEndpoint("http://crm:8080"),
                 new GatewayProperties.ServiceEndpoint("http://feedback:8080"),
-                new GatewayProperties.ServiceEndpoint("http://reporting:8080"),
                 new GatewayProperties.ServiceEndpoint("http://analytics:8080")
             ),
             new GatewayProperties.Auth(

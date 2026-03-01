@@ -45,7 +45,6 @@ public interface ReportingClient {
                                        LocalDate to,
                                        String departmentId,
                                        String teamId,
-                                       String personId,
                                        int limit);
 
     ReportDtos.DashboardResponse dashboard(LocalDate from,

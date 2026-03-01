@@ -116,7 +116,6 @@ public class ReportingService {
                                               String periodTo,
                                               String departmentId,
                                               String teamId,
-                                              String personId,
                                               int limit) {
         enforceReportsAccess();
         return reportingClient.topTags(
@@ -124,7 +123,6 @@ public class ReportingService {
             parseDate(periodTo, "periodTo"),
             departmentId,
             teamId,
-            personId,
             limit
         );
     }

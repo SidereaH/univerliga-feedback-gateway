@@ -165,9 +165,8 @@ public class MockReportingClient implements ReportingClient {
                                               LocalDate to,
                                               String departmentId,
                                               String teamId,
-                                              String personId,
                                               int limit) {
-        List<FeedbackRecord> reviews = filteredFeedback(from, to, departmentId, teamId, personId, null);
+        List<FeedbackRecord> reviews = filteredFeedback(from, to, departmentId, teamId, null, null);
         Map<String, CategoryRecord.SubcategoryRecord> subMap = subcategoryById();
         List<String> tags = reviews.stream().flatMap(r -> r.tagIds().stream()).toList();
 
@@ -200,7 +199,7 @@ public class MockReportingClient implements ReportingClient {
                 positivityByPerson(from, to, departmentId, teamId, 20, "total").items(),
                 subcategoryFrequency(from, to, departmentId, teamId, personId, null, 30, "total").items()
             ),
-            new ReportDtos.DashboardInsights(topTags(from, to, departmentId, teamId, personId, 5))
+            new ReportDtos.DashboardInsights(topTags(from, to, departmentId, teamId, 5))
         );
     }
 

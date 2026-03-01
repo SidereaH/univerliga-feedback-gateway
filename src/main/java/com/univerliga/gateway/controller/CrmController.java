@@ -25,8 +25,8 @@ public class CrmController {
     }
 
     @GetMapping("/people")
-    @Operation(summary = "Search people", description = "Returns paginated list of people with optional filters")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','EMPLOYEE')")
+    @Operation(summary = "Search people", description = "Returns paginated list of people with optional filters (ADMIN/MANAGER only)")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ApiEnvelope<PersonDtos.PeoplePage> people(@Parameter(description = "Text query by name/email") @RequestParam(required = false) String query,
                                                      @Parameter(description = "Department filter") @RequestParam(required = false) String departmentId,
                                                      @Parameter(description = "Team filter") @RequestParam(required = false) String teamId,

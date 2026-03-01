@@ -25,11 +25,6 @@ public class RestClientsConfig {
     }
 
     @Bean
-    RestClient reportingRestClient(GatewayProperties properties) {
-        return build(properties.clients().reporting().baseUrl());
-    }
-
-    @Bean
     RestClient analyticsRestClient(GatewayProperties properties) {
         return build(properties.clients().analytics().baseUrl());
     }

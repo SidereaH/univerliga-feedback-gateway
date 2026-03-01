@@ -82,13 +82,13 @@ class ReportingServiceTest {
             List.of(),
             List.of()
         );
-        when(reportingClient.topTags(LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), "d_1", "t_1", null, 5))
+        when(reportingClient.topTags(LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), "d_1", "t_1", 5))
             .thenReturn(expected);
 
         ReportDtos.TopTagsResponse result =
-            reportingService.topTags("2026-01-01", "2026-01-31", "d_1", "t_1", null, 5);
+            reportingService.topTags("2026-01-01", "2026-01-31", "d_1", "t_1", 5);
 
         assertEquals("2026-01-01", result.period().from());
-        verify(reportingClient).topTags(LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), "d_1", "t_1", null, 5);
+        verify(reportingClient).topTags(LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-31"), "d_1", "t_1", 5);
     }
 }

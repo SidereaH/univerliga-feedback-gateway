@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.LinkedHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -139,9 +140,13 @@ public class FeedbackService {
         Set<String> teamPeople = crmClient.findPeople(null, null, manager.teamId()).stream()
             .map(PersonRecord::id)
             .collect(Collectors.toSet());
-        return feedbackClient.findRaw(contextType, contextRef, null, null).stream()
-            .filter(f -> teamPeople.contains(f.targetPersonId()))
-            .toList();
+        Map<String, FeedbackRecord> uniqueById = new LinkedHashMap<>();
+        for (String targetPersonId : teamPeople) {
+            for (FeedbackRecord review : feedbackClient.findInbox(targetPersonId, contextType, contextRef)) {
+                uniqueById.put(review.id(), review);
+            }
+        }
+        return List.copyOf(uniqueById.values());
     }
 
     private void validateTaskAccess(CurrentUser user, ResolvedContext context) {

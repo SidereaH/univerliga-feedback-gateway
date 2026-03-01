@@ -23,7 +23,7 @@ public class MeController {
     }
 
     @GetMapping("/me")
-    @Operation(summary = "Get current user profile", description = "Returns profile info resolved from JWT and CRM mock data")
+    @Operation(summary = "Get current user profile", description = "Returns profile info resolved from JWT and CRM service")
     public ApiEnvelope<MeResponse> me() {
         return responseFactory.ok(meService.me());
     }

@@ -1,6 +1,8 @@
 # univerliga-gateway
 
-BFF API Gateway на Java 21 + Spring Boot 3.3 (MVC), с моками CRM/Feedback/Reporting и реальной JWT-авторизацией через Keycloak.
+BFF API Gateway на Java 21 + Spring Boot 3.3 (MVC), с JWT-авторизацией через Keycloak и двумя режимами работы:
+- `gateway.mode=real` — проксирование в реальные CRM/Feedback/Analytics сервисы;
+- `gateway.mode=mock` — in-memory клиенты для локальной разработки.
 
 ## Запуск
 
@@ -67,17 +69,16 @@ curl -s 'http://localhost:8080/api/v1/reports/insights/top-tags?periodFrom=2026-
 
 - `ROLE_ADMIN`: полный доступ
 - `ROLE_HR`: отчёты + доступ к `/feedback/raw`
-- `ROLE_MANAGER`: отчёты + чтение/редактирование задач
-- `ROLE_EMPLOYEE`: профиль, свои задачи и feedback (без `/reports/**`, без `/feedback/raw`)
+- `ROLE_MANAGER`: отчёты, просмотр people, чтение/редактирование задач
+- `ROLE_EMPLOYEE`: профиль, задачи и feedback (без `/reports/**`, без `/feedback/raw`, без `/crm/people`)
 
 ## Архитектура
 
 - `controller/*` — REST API `/api/v1`
 - `service/*` — бизнес-правила и role checks
 - `client/*` — интерфейсы внешних сервисов
-- `client/mock/*` — in-memory заглушки (10 people, 10 tasks, 30 feedback)
-- `client/mock/*` — in-memory заглушки с context-based reviews, polarity tags и аналитикой
-- `client/real/*` — каркас для реальных HTTP-вызовов
+- `client/mock/*` — in-memory заглушки (10 people, 10 tasks, 30 feedback) для режима `mock`
+- `client/real/*` — реальные HTTP-клиенты в CRM/Feedback/Analytics
 - `security/*` — JWT converter (realm roles -> `ROLE_*`)
 - `error/*` — унифицированный формат ошибок
 - `util/*` — `X-Request-Id` filter
@@ -88,6 +89,5 @@ curl -s 'http://localhost:8080/api/v1/reports/insights/top-tags?periodFrom=2026-
 - `gateway.mode=mock|real` (default `mock`)
 - `gateway.clients.crm.base-url`
 - `gateway.clients.feedback.base-url`
-- `gateway.clients.reporting.base-url`
 - `gateway.clients.analytics.base-url`
 - `spring.security.oauth2.resourceserver.jwt.issuer-uri`

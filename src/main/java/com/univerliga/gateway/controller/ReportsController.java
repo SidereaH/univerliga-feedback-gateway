@@ -93,9 +93,8 @@ public class ReportsController {
                                                            @Parameter(description = "Period end (YYYY-MM-DD)") @RequestParam String periodTo,
                                                            @Parameter(description = "Department filter") @RequestParam(required = false) String departmentId,
                                                            @Parameter(description = "Team filter") @RequestParam(required = false) String teamId,
-                                                           @Parameter(description = "Person filter") @RequestParam(required = false) String personId,
                                                            @Parameter(description = "Maximum items per polarity") @RequestParam(defaultValue = "5") int limit) {
-        return responseFactory.ok(reportingService.topTags(periodFrom, periodTo, departmentId, teamId, personId, limit));
+        return responseFactory.ok(reportingService.topTags(periodFrom, periodTo, departmentId, teamId, limit));
     }
 
     @GetMapping("/dashboard")

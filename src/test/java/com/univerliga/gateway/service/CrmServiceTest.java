@@ -45,17 +45,10 @@ class CrmServiceTest {
     }
 
     @Test
-    void peopleForEmployeeReturnsOnlySelf() {
+    void peopleForEmployeeIsForbidden() {
         when(currentUserService.getCurrentUser()).thenReturn(new CurrentUser("employee", "p_employee", List.of(SecurityRoles.EMPLOYEE).stream().collect(java.util.stream.Collectors.toSet())));
-        when(crmClient.findPeople(null, null, null)).thenReturn(List.of(
-            person("p_employee", "kc_employee"),
-            person("p_other", "kc_other")
-        ));
-
-        PersonDtos.PeoplePage page = crmService.people(null, null, null, 1, 20);
-
-        assertEquals(1, page.items().size());
-        assertEquals("p_employee", page.items().get(0).id());
+        ApiException ex = assertThrows(ApiException.class, () -> crmService.people(null, null, null, 1, 20));
+        assertEquals("FORBIDDEN", ex.getCode());
     }
 
     @Test
